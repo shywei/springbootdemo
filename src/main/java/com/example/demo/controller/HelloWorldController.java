@@ -4,7 +4,9 @@ import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -14,6 +16,7 @@ import java.net.URLEncoder;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.xml.bind.DatatypeConverter;
 
 import org.json.JSONObject;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -58,16 +61,11 @@ public class HelloWorldController {
         return response.toString();
     }
     
-    @RequestMapping("/hello")
-    public String index() {
-        return "Hello World";
-    }
-    
-    @RequestMapping(value="/anwser", method=RequestMethod.GET)
-    public void anwser(@RequestParam(value="text", required=false) String text,HttpServletRequest request,
+    @RequestMapping(value="/read", method=RequestMethod.GET)
+    public void read(@RequestParam(value="text", required=false) String text,HttpServletRequest request,
             HttpServletResponse response) throws Exception {
     	getToken();
-    	File pcmFile = new File(testFileName);
+    	response.setHeader("Access-Control-Allow-Origin", "*");
         HttpURLConnection conn = (HttpURLConnection) new URL(serverURL2).openConnection();
         
         // add request header
@@ -90,5 +88,39 @@ public class HelloWorldController {
         while(-1 != fis.read(bis)){
         	os.write(bis);
         	}
+    }
+    
+    @RequestMapping(value="/listen", method=RequestMethod.POST)
+    public String listen(HttpServletRequest request,
+            HttpServletResponse response,@RequestParam(value="len", required=false) long len,@RequestParam(value="speech", required=false) String speech) throws Exception {
+    	getToken();
+    	response.setHeader("Access-Control-Allow-Origin", "*");
+        HttpURLConnection conn = (HttpURLConnection) new URL(serverURL1).openConnection();
+        // construct params
+        JSONObject params = new JSONObject();
+        params.put("format", "wav");
+        params.put("rate", 16000);
+        params.put("channel", "1");
+        params.put("token", token);
+        params.put("cuid", cuid);
+        params.put("len", len);
+        params.put("speech", speech);
+
+        // add request header
+        conn.setRequestMethod("POST");
+        conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+
+        conn.setDoInput(true);
+        conn.setDoOutput(true);
+
+        // send request
+        DataOutputStream wr = new DataOutputStream(conn.getOutputStream());
+        wr.writeBytes(params.toString());
+        wr.flush();
+        wr.close();
+
+        String result = printResponse(conn);
+        text=(new JSONObject(result)).get("result").toString();
+        return text;
     }
 }
